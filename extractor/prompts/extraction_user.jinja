@@ -1,0 +1,11 @@
+Page URL: {{ page_url }}
+Page type: {{ page_type }}
+Page importance score: {{ page_score }}/5{% if page_score >= 4 %} (HIGH — be thorough, extract all facts){% elif page_score >= 2 %} (MEDIUM — extract the most relevant facts){% else %} (LOW — extract only clear, specific facts){% endif %}
+
+Client industry: {{ industry }}
+
+---PAGE CONTENT---
+{{ page_text }}
+---END PAGE CONTENT---
+
+Extract all business facts from the above page content and return them as a JSON array.

@@ -1,0 +1,8 @@
+page_type_overrides:
+  - pattern: "/treatments/"
+    score: 5
+  - pattern: "/new-patients/"
+    score: 4
+  - pattern: "/dental-blog/"
+    score: 1
+top_x_pages: 15

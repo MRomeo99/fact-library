@@ -1,0 +1,8 @@
+page_type_overrides:
+  - pattern: "/practice-areas/"
+    score: 5
+  - pattern: "/results/"
+    score: 3
+  - pattern: "/case-results/"
+    score: 3
+top_x_pages: 20

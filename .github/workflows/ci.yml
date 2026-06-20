@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dev deps
+        run: pip install ruff black
+      - name: ruff check
+        run: ruff check .
+      - name: black check
+        run: black --check .
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      LLM_MODE: direct
+      LLM_PROVIDER: openai
+      LLM_MODEL_DIRECT: gpt-4o-mini
+      OPENAI_API_KEY: sk-fake-for-ci
+      EMBEDDING_MODE: local
+      QDRANT_URL: memory
+      QDRANT_API_KEY: ""
+      MOCK_SERVER_URL: http://localhost:8888
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Run pytest (unit + integration, mocked)
+        run: pytest tests/ -v --cov=. --cov-report=xml
+        env:
+          QDRANT_URL: memory
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+        continue-on-error: true
+
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t client-fact-library:ci .
+        continue-on-error: true  # Docker build is best-effort in CI
+
+  integration:
+    name: Integration Smoke Test
+    runs-on: ubuntu-latest
+    env:
+      LLM_MODE: direct
+      LLM_PROVIDER: openai
+      LLM_MODEL_DIRECT: gpt-4o-mini
+      OPENAI_API_KEY: sk-fake-for-ci
+      EMBEDDING_MODE: local
+      QDRANT_URL: memory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Start mock site server
+        run: python seeds/mock_site_server.py &
+        env:
+          MOCK_PORT: 8888
+      - name: Wait for mock server
+        run: sleep 3
+      - name: Run integration tests
+        run: pytest tests/ -v -k "not test_pipeline"
+        env:
+          QDRANT_URL: memory
