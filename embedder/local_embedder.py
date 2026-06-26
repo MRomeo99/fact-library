@@ -1,4 +1,5 @@
 """Local embedding using sentence-transformers (zero cost, no API key)."""
+
 from embedder.base import AbstractEmbedder
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"

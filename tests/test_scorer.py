@@ -1,5 +1,5 @@
 """Tests for the page importance scoring model."""
-import pytest
+
 from crawler.page_scorer import PageScorer, score_page
 
 
@@ -126,7 +126,7 @@ class TestScorePageFunction:
     def test_score_page_returns_int_in_range(self):
         html = "<p>Hello</p>"
         result = score_page("/services/", html, inbound_links=0)
-        assert isinstance(result, (int, float))
+        assert isinstance(result, int | float)
         assert 0 <= result <= 5
 
 

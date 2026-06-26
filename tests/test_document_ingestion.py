@@ -1,4 +1,5 @@
 """Tests for document ingestion — written first (TDD)."""
+
 import sys
 import types
 from unittest.mock import MagicMock
@@ -19,7 +20,15 @@ def _stub_module(name: str, **attrs):
 _qdrant = _stub_module("qdrant_client")
 _qdrant.QdrantClient = MagicMock
 _qdrant_models = _stub_module("qdrant_client.models")
-for _name in ["Distance", "FieldCondition", "Filter", "MatchValue", "PointStruct", "VectorParams", "PayloadSchemaType"]:
+for _name in [
+    "Distance",
+    "FieldCondition",
+    "Filter",
+    "MatchValue",
+    "PointStruct",
+    "VectorParams",
+    "PayloadSchemaType",
+]:
     setattr(_qdrant_models, _name, MagicMock())
 
 # Stub portkey_ai and google for llm_client imports
@@ -34,7 +43,6 @@ if not hasattr(_gai_parent, "generativeai"):
 
 from extractor.schemas import LocationFact, ServiceFact
 from ingestion.document_ingestion import (
-    DocumentChunk,
     chunk_document,
     ingest_document,
     parse_document,

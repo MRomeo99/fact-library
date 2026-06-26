@@ -1,7 +1,8 @@
 """Pydantic fact schemas — one model per fact type."""
+
 import json
 import logging
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -28,16 +29,16 @@ class ServiceFact(FactBase):
 
 class PricingFact(FactBase):
     fact_type: Literal["pricing"]
-    price_min: Optional[float] = None
-    price_max: Optional[float] = None
-    price_unit: Optional[str] = None
+    price_min: float | None = None
+    price_max: float | None = None
+    price_unit: str | None = None
 
 
 class LocationFact(FactBase):
     fact_type: Literal["location"]
-    address: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
     service_area: list[str] = []
 
 
@@ -51,6 +52,7 @@ class OperationalFact(FactBase):
 
 # ── Knowledge-base fact types (human-authored, not LLM-extracted) ─────────────
 
+
 class ConditionalFact(FactBase):
     """Explicit if/then business rule authored in the knowledge base.
 
@@ -61,7 +63,7 @@ class ConditionalFact(FactBase):
     fact_type: Literal["conditional"]
     condition: str
     response: str
-    exception_note: Optional[str] = None
+    exception_note: str | None = None
     priority: int = 5
     source_type: Literal["knowledge_base"] = "knowledge_base"
     confidence: float = 1.0
@@ -83,16 +85,16 @@ class QAFact(FactBase):
     raw_evidence: str = ""
 
 
-AnyFact = Union[
-    IdentityFact,
-    ServiceFact,
-    PricingFact,
-    LocationFact,
-    CredibilityFact,
-    OperationalFact,
-    ConditionalFact,
-    QAFact,
-]
+AnyFact = (
+    IdentityFact
+    | ServiceFact
+    | PricingFact
+    | LocationFact
+    | CredibilityFact
+    | OperationalFact
+    | ConditionalFact
+    | QAFact
+)
 
 _FACT_TYPE_MAP: dict[str, type] = {
     "identity": IdentityFact,

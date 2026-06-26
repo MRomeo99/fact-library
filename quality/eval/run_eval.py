@@ -10,10 +10,10 @@ Usage:
         --min-precision 0.75 \\
         --min-mrr 0.70
 """
+
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -323,7 +323,9 @@ def main() -> None:
 
     print("\n── Retrieval Eval Results ──────────────────────────")
     print(f"  Questions evaluated : {results['total_questions']}")
-    print(f"  Precision@3         : {results['precision_at_3']:.2f}  (threshold: {args.min_precision})")
+    print(
+        f"  Precision@3         : {results['precision_at_3']:.2f}  (threshold: {args.min_precision})"
+    )
     print(f"  MRR                 : {results['mrr']:.2f}  (threshold: {args.min_mrr})")
     print(f"  KB override rate    : {results['kb_override_rate']:.2f}")
     print("────────────────────────────────────────────────────\n")

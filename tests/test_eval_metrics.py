@@ -1,5 +1,4 @@
 """Tests for retrieval evaluation metrics — written first (TDD)."""
-import pytest
 
 from quality.eval.metrics import mrr, precision_at_k, source_coverage
 
@@ -87,9 +86,7 @@ class TestMRR:
         assert mrr([], expected_fact_types_per_query=[]) == 0.0
 
     def test_third_hit_relevant_returns_one_third(self):
-        queries = [
-            [{"fact_type": "service"}, {"fact_type": "location"}, {"fact_type": "pricing"}]
-        ]
+        queries = [[{"fact_type": "service"}, {"fact_type": "location"}, {"fact_type": "pricing"}]]
         result = mrr(queries, expected_fact_types_per_query=[["pricing"]])
         assert abs(result - 1 / 3) < 0.001
 

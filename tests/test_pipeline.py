@@ -1,9 +1,8 @@
 """Tests for the pipeline — incremental logic and Prefect tasks."""
-import hashlib
-import pytest
-from unittest.mock import MagicMock, patch
 
-from pipeline.incremental import compute_content_hash, ContentHashChecker
+from unittest.mock import MagicMock
+
+from pipeline.incremental import ContentHashChecker, compute_content_hash
 
 
 class TestComputeContentHash:

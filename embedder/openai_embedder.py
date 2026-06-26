@@ -1,4 +1,5 @@
 """OpenAI embedding swap — use when EMBEDDING_MODE=openai."""
+
 import os
 
 from embedder.base import AbstractEmbedder

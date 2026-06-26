@@ -1,9 +1,8 @@
 """robots.txt fetching and enforcement."""
+
 import logging
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
-
-import httpx
 
 USER_AGENT = "ClientFactLibrary/1.0"
 logger = logging.getLogger(__name__)

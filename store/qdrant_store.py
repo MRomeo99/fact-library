@@ -1,9 +1,10 @@
 """All Qdrant vector store operations."""
+
 import hashlib
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from qdrant_client import QdrantClient
@@ -30,7 +31,7 @@ SOURCE_MULTIPLIERS: dict[str, float] = {
 
 
 class QdrantStore:
-    def __init__(self, url: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, url: str | None = None, api_key: str | None = None):
         resolved_url = url or os.environ.get("QDRANT_URL", "http://localhost:6333")
         resolved_key = api_key or os.environ.get("QDRANT_API_KEY") or None
         self._client = QdrantClient(url=resolved_url, api_key=resolved_key)
@@ -75,7 +76,7 @@ class QdrantStore:
         page_score: int,
         content_hash: str,
         source_type: str = "website",
-        extra_payload: Optional[dict] = None,
+        extra_payload: dict | None = None,
     ) -> None:
         fact_id = self._compute_fact_id(client_id, fact)
         point_id = str(UUID(fact_id[:32]))
@@ -90,7 +91,7 @@ class QdrantStore:
             "page_type": page_type,
             "page_score": page_score,
             "content_hash": content_hash,
-            "extracted_at": datetime.now(tz=timezone.utc).isoformat(),
+            "extracted_at": datetime.now(tz=UTC).isoformat(),
             "raw_evidence": fact.raw_evidence,
         }
         # Include type-specific fields from the model
@@ -136,8 +137,8 @@ class QdrantStore:
         client_id: str,
         query_vector: list[float],
         limit: int = 5,
-        fact_type: Optional[str] = None,
-        source_type: Optional[str] = None,
+        fact_type: str | None = None,
+        source_type: str | None = None,
     ) -> list[dict]:
         must = [FieldCondition(key="client_id", match=MatchValue(value=client_id))]
         if fact_type:

@@ -1,4 +1,5 @@
 """GET /facts/{client_id}/status and /types endpoints."""
+
 from fastapi import APIRouter, Depends
 
 from store.qdrant_store import QdrantStore

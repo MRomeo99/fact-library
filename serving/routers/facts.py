@@ -1,6 +1,6 @@
 """GET /facts/{client_id} — semantic search with optional fact_type and source_type filters."""
-from datetime import datetime, timezone
-from typing import Optional
+
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
 
@@ -31,8 +31,8 @@ def get_embedder() -> AbstractEmbedder:
 def search_facts(
     client_id: str,
     q: str = Query(..., description="Natural language query"),
-    fact_type: Optional[str] = Query(None, description="Filter by fact type"),
-    source_type: Optional[str] = Query(
+    fact_type: str | None = Query(None, description="Filter by fact type"),
+    source_type: str | None = Query(
         None, description="Filter by source: website, knowledge_base, document"
     ),
     limit: int = Query(5, ge=1, le=50),
@@ -47,14 +47,14 @@ def search_facts(
         fact_type=fact_type,
         source_type=source_type,
     )
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     results = []
     for hit in hits:
         extracted_at_str = hit.get("extracted_at")
         try:
             extracted_dt = datetime.fromisoformat(extracted_at_str)
             if extracted_dt.tzinfo is None:
-                extracted_dt = extracted_dt.replace(tzinfo=timezone.utc)
+                extracted_dt = extracted_dt.replace(tzinfo=UTC)
             fact_age_days = (now - extracted_dt).days
         except Exception:
             fact_age_days = -1

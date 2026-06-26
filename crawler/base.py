@@ -1,7 +1,7 @@
 """Abstract base class for all crawlers."""
+
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -9,9 +9,9 @@ class CrawledPage:
     url: str
     html: str
     status_code: int
-    etag: Optional[str] = None
-    last_modified: Optional[str] = None
-    error: Optional[str] = None
+    etag: str | None = None
+    last_modified: str | None = None
+    error: str | None = None
 
 
 class AbstractCrawler(ABC):

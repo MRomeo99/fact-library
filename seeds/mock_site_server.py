@@ -3,6 +3,7 @@
 Start with: python seeds/mock_site_server.py  (or: make mock-server)
 Listens on http://localhost:8888
 """
+
 import os
 from pathlib import Path
 
@@ -20,6 +21,7 @@ def _read(filename: str) -> str:
 
 
 # ── Dental Practice ───────────────────────────────────────────────────────────
+
 
 @app.get("/dental/", response_class=HTMLResponse)
 def dental_home():
@@ -109,6 +111,7 @@ def dental_contact():
 
 # ── Home Services ─────────────────────────────────────────────────────────────
 
+
 @app.get("/home-services/", response_class=HTMLResponse)
 def home_services_home():
     return _read("home_services.html")
@@ -148,6 +151,7 @@ def home_services_area():
 
 
 # ── Law Firm ──────────────────────────────────────────────────────────────────
+
 
 @app.get("/law-firm/", response_class=HTMLResponse)
 def law_firm_home():

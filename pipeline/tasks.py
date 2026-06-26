@@ -1,18 +1,16 @@
 """Prefect @task definitions for each pipeline stage."""
+
 import logging
-import os
-from typing import Optional
 from urllib.parse import urlparse
 
-from prefect import task
 from bs4 import BeautifulSoup
+from prefect import task
 
 from crawler.base import CrawledPage
 from crawler.httpx_crawler import HttpxCrawler
 from crawler.page_scorer import PageScorer
 from crawler.robots import get_robots_parser, is_allowed
 from embedder.base import AbstractEmbedder
-from embedder.local_embedder import LocalEmbedder
 from extractor.fact_extractor import FactExtractor
 from extractor.llm_client import build_llm_client
 from extractor.schemas import AnyFact
@@ -31,12 +29,12 @@ def discover_pages(base_url: str, max_pages: int = 30) -> list[str]:
     if page.error:
         return []
     links = crawler.discover_links(base_url, page.html)
-    allowed = [l for l in links if is_allowed(l, robots)]
+    allowed = [link for link in links if is_allowed(link, robots)]
     return allowed[:max_pages]
 
 
 @task(retries=2, retry_delay_seconds=5)
-def score_pages(urls: list[str], scorer_config: Optional[dict] = None) -> list[dict]:
+def score_pages(urls: list[str], scorer_config: dict | None = None) -> list[dict]:
     """Score each URL and return sorted list of {url, score} dicts."""
     scorer = PageScorer(config=scorer_config)
     scored = []
@@ -49,7 +47,7 @@ def score_pages(urls: list[str], scorer_config: Optional[dict] = None) -> list[d
 
 
 @task(retries=2, retry_delay_seconds=10)
-def crawl_page(url: str) -> Optional[CrawledPage]:
+def crawl_page(url: str) -> CrawledPage | None:
     """Fetch a single page. Returns None if fetch fails or robots disallows."""
     crawler = HttpxCrawler(rate_limit_seconds=1.5)
     page = crawler.fetch(url)
@@ -65,7 +63,7 @@ def check_incremental(
     url: str,
     page: CrawledPage,
     store: QdrantStore,
-) -> Optional[str]:
+) -> str | None:
     """Return content_hash if page needs re-extraction; None if unchanged."""
     content_hash = compute_content_hash(
         url=url,

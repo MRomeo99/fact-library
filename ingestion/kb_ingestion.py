@@ -1,7 +1,7 @@
 """Knowledge base ingestion — CDC-style polling from Postgres client_knowledge_base."""
+
 import logging
-from datetime import datetime, timezone
-from typing import Optional, Union
+from datetime import UTC, datetime
 
 from embedder.base import AbstractEmbedder
 from extractor.schemas import ConditionalFact, QAFact
@@ -9,10 +9,10 @@ from store.qdrant_store import QdrantStore
 
 logger = logging.getLogger(__name__)
 
-KBAnyFact = Union[ConditionalFact, QAFact]
+KBAnyFact = ConditionalFact | QAFact
 
 
-def map_kb_row_to_fact(row: dict) -> Optional[KBAnyFact]:
+def map_kb_row_to_fact(row: dict) -> KBAnyFact | None:
     """Map a client_knowledge_base DB row to a typed fact object.
 
     Returns None for unknown fact_type values so callers can skip them.
@@ -102,7 +102,7 @@ def sync_knowledge_base(
         embed_text = get_embed_text_for_kb_fact(fact)
         vector = embedder.embed(embed_text)
 
-        updated_at: datetime = row.get("updated_at") or datetime.now(tz=timezone.utc)
+        updated_at: datetime = row.get("updated_at") or datetime.now(tz=UTC)
         content_hash = f"kb:{record_id}:{updated_at.isoformat()}"
 
         store.upsert_fact(

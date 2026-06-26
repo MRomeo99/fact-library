@@ -1,11 +1,10 @@
 """Prefect @flow definitions for the client fact pipeline."""
+
 import logging
 import os
-from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from prefect import flow
-from prefect.schedules import CronSchedule
 
 from embedder.local_embedder import LocalEmbedder
 from ingestion.document_ingestion import ingest_document
@@ -55,9 +54,7 @@ def run_client_pipeline(
         if page is None:
             continue
 
-        content_hash = check_incremental(
-            client_id=client_id, url=url, page=page, store=store
-        )
+        content_hash = check_incremental(client_id=client_id, url=url, page=page, store=store)
         if content_hash is None:
             stats["pages_unchanged"] += 1
             print(f"[{client_id}] SKIP (unchanged): {url}")

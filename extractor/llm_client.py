@@ -4,8 +4,9 @@ All extraction code calls build_llm_client() and never constructs a
 provider client directly. Model selection belongs in Portkey config or
 LLM_MODEL_DIRECT env var — never hardcoded here.
 """
-import os
+
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)

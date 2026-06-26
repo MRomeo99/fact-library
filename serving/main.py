@@ -1,4 +1,5 @@
 """FastAPI serving application."""
+
 from fastapi import FastAPI
 
 from serving.routers import crawl, facts, status

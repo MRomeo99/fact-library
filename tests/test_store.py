@@ -1,10 +1,10 @@
 """Tests for Qdrant store operations."""
+
 import sys
 import types
-import hashlib
+from unittest.mock import MagicMock, patch
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, call
 
 
 def _stub_module(name: str, **attrs):
@@ -21,14 +21,19 @@ _qdrant = _stub_module("qdrant_client")
 _qdrant.QdrantClient = MagicMock  # type: ignore
 _qdrant_models = _stub_module("qdrant_client.models")
 for _name in [
-    "Distance", "FieldCondition", "Filter", "MatchValue",
-    "PointStruct", "VectorParams", "PayloadSchemaType",
+    "Distance",
+    "FieldCondition",
+    "Filter",
+    "MatchValue",
+    "PointStruct",
+    "VectorParams",
+    "PayloadSchemaType",
 ]:
     setattr(_qdrant_models, _name, MagicMock())
 
-from store.qdrant_store import QdrantStore
-from store.collection_config import COLLECTION_NAME, get_collection_config
 from extractor.schemas import IdentityFact, ServiceFact
+from store.collection_config import COLLECTION_NAME, get_collection_config
+from store.qdrant_store import QdrantStore
 
 
 def _make_identity_fact() -> IdentityFact:

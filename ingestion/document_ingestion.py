@@ -1,9 +1,8 @@
 """Document ingestion — parse PDF/DOCX/TXT → chunk → extract facts → embed → upsert."""
+
 import logging
-import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from embedder.base import AbstractEmbedder
 from extractor.fact_extractor import FactExtractor
@@ -24,7 +23,7 @@ class DocumentChunk:
     text: str
     document_name: str
     page_number: int
-    section_heading: Optional[str] = None
+    section_heading: str | None = None
 
 
 def parse_document(file_path: str) -> str:
@@ -47,7 +46,9 @@ def parse_document(file_path: str) -> str:
         try:
             import pdfplumber
         except ImportError as exc:
-            raise ImportError("pdfplumber is required for PDF parsing: pip install pdfplumber") from exc
+            raise ImportError(
+                "pdfplumber is required for PDF parsing: pip install pdfplumber"
+            ) from exc
         text_parts = []
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
@@ -86,7 +87,7 @@ def chunk_document(
     raw_sections = _split_into_sections(text)
     chunks: list[DocumentChunk] = []
     page_number = 1
-    current_heading: Optional[str] = None
+    current_heading: str | None = None
 
     for raw_section in raw_sections:
         raw_section = raw_section.strip()
@@ -151,7 +152,7 @@ def ingest_document(
     document_name: str,
     store: QdrantStore,
     embedder: AbstractEmbedder,
-    extractor: Optional[FactExtractor] = None,
+    extractor: FactExtractor | None = None,
 ) -> dict:
     """Parse, chunk, extract, embed, and upsert a single document.
 

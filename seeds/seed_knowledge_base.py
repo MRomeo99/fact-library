@@ -9,6 +9,7 @@ Usage:
 Environment variables:
     DATABASE_URL  — Postgres connection string (e.g. postgresql://user:pw@host/db)
 """
+
 import os
 import sys
 from pathlib import Path

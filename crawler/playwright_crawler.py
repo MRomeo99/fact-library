@@ -1,9 +1,9 @@
 """JS-rendered fallback crawler using Playwright."""
+
 import logging
-from typing import Optional
 
 from crawler.base import AbstractCrawler, CrawledPage
-from crawler.robots import get_robots_parser, is_allowed, USER_AGENT
+from crawler.robots import USER_AGENT, get_robots_parser, is_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ class PlaywrightCrawler(AbstractCrawler):
 
     def _get_robots(self, url: str):
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         origin = f"{parsed.scheme}://{parsed.netloc}"
         if origin not in self._robots_cache:
@@ -30,8 +31,10 @@ class PlaywrightCrawler(AbstractCrawler):
             return CrawledPage(url=url, html="", status_code=0, error="disallowed by robots.txt")
 
         try:
-            from playwright.sync_api import sync_playwright
             import time
+
+            from playwright.sync_api import sync_playwright
+
             time.sleep(self._rate_limit)
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
@@ -47,6 +50,7 @@ class PlaywrightCrawler(AbstractCrawler):
 
     def discover_links(self, base_url: str, html: str) -> list[str]:
         from urllib.parse import urljoin, urlparse
+
         from bs4 import BeautifulSoup
 
         soup = BeautifulSoup(html, "lxml")

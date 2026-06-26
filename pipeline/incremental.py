@@ -1,13 +1,13 @@
 """Content hash comparison logic for incremental crawls."""
+
 import hashlib
-from typing import Optional
 
 
 def compute_content_hash(
     url: str,
-    content: Optional[str] = None,
-    etag: Optional[str] = None,
-    last_modified: Optional[str] = None,
+    content: str | None = None,
+    etag: str | None = None,
+    last_modified: str | None = None,
 ) -> str:
     """Compute a deterministic sha256 hash for a page.
 

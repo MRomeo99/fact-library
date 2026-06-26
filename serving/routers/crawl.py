@@ -1,4 +1,5 @@
 """POST /facts/{client_id}/crawl — trigger an on-demand crawl."""
+
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
@@ -36,6 +37,7 @@ def trigger_crawl(
 
 def _run_crawl(client_id: str, base_url: str, industry: str, max_pages: int) -> None:
     from pipeline.flows import run_client_pipeline
+
     run_client_pipeline(
         client_id=client_id,
         base_url=base_url,

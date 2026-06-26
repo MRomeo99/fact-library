@@ -1,9 +1,11 @@
 """Tests for the FastAPI serving layer."""
+
 import sys
 import types
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
 
 
 def _stub_module(name: str, **attrs):
@@ -19,7 +21,15 @@ def _stub_module(name: str, **attrs):
 _qdrant = _stub_module("qdrant_client")
 _qdrant.QdrantClient = MagicMock  # type: ignore
 _qdrant_models = _stub_module("qdrant_client.models")
-for _n in ["Distance", "FieldCondition", "Filter", "MatchValue", "PointStruct", "VectorParams", "PayloadSchemaType"]:
+for _n in [
+    "Distance",
+    "FieldCondition",
+    "Filter",
+    "MatchValue",
+    "PointStruct",
+    "VectorParams",
+    "PayloadSchemaType",
+]:
     setattr(_qdrant_models, _n, MagicMock())
 
 _st_stub = _stub_module("sentence_transformers")
@@ -45,7 +55,7 @@ def mock_store():
             "confidence": 0.92,
             "source_url": "http://localhost:8888/dental/pricing",
             "page_type": "pricing",
-            "extracted_at": datetime(2025, 6, 1, 3, 0, 0, tzinfo=timezone.utc).isoformat(),
+            "extracted_at": datetime(2025, 6, 1, 3, 0, 0, tzinfo=UTC).isoformat(),
             "score": 0.87,
             "page_score": 4,
             "raw_evidence": "Initial consultation: $150",
@@ -65,7 +75,7 @@ def mock_embedder():
 @pytest.fixture
 def client(mock_store, mock_embedder):
     from serving.main import app
-    from serving.routers import facts, status, crawl
+    from serving.routers import crawl, facts, status
 
     app.dependency_overrides[facts.get_store] = lambda: mock_store
     app.dependency_overrides[facts.get_embedder] = lambda: mock_embedder
@@ -100,8 +110,16 @@ class TestFactsEndpoint:
         data = response.json()
         result = data["results"][0]
         required_fields = [
-            "fact_id", "fact_type", "content", "confidence",
-            "source_url", "source_type", "page_type", "extracted_at", "score", "fact_age_days",
+            "fact_id",
+            "fact_type",
+            "content",
+            "confidence",
+            "source_url",
+            "source_type",
+            "page_type",
+            "extracted_at",
+            "score",
+            "fact_age_days",
         ]
         for field in required_fields:
             assert field in result, f"Missing field: {field}"

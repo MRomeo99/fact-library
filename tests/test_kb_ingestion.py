@@ -1,10 +1,9 @@
 """Tests for knowledge base ingestion — written first (TDD)."""
+
 import sys
 import types
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 
 def _stub_module(name: str, **attrs):
@@ -20,7 +19,15 @@ def _stub_module(name: str, **attrs):
 _qdrant = _stub_module("qdrant_client")
 _qdrant.QdrantClient = MagicMock
 _qdrant_models = _stub_module("qdrant_client.models")
-for _name in ["Distance", "FieldCondition", "Filter", "MatchValue", "PointStruct", "VectorParams", "PayloadSchemaType"]:
+for _name in [
+    "Distance",
+    "FieldCondition",
+    "Filter",
+    "MatchValue",
+    "PointStruct",
+    "VectorParams",
+    "PayloadSchemaType",
+]:
     setattr(_qdrant_models, _name, MagicMock())
 
 from extractor.schemas import ConditionalFact, QAFact
@@ -40,7 +47,7 @@ CONDITIONAL_ROW = {
     "exception_note": "Unless they are a platinum member",
     "priority": 8,
     "is_active": True,
-    "updated_at": datetime(2025, 6, 1, tzinfo=timezone.utc),
+    "updated_at": datetime(2025, 6, 1, tzinfo=UTC),
     "created_by": "admin",
 }
 
@@ -54,7 +61,7 @@ QA_ROW = {
     "exception_note": None,
     "priority": 5,
     "is_active": True,
-    "updated_at": datetime(2025, 6, 1, tzinfo=timezone.utc),
+    "updated_at": datetime(2025, 6, 1, tzinfo=UTC),
     "created_by": "admin",
 }
 

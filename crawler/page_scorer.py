@@ -1,6 +1,7 @@
 """Page importance scoring model."""
+
 import re
-from typing import Optional
+
 from bs4 import BeautifulSoup
 
 # Default page type scores (0–5)
@@ -40,7 +41,7 @@ HOMEPAGE_PATTERNS = {"/", "/index"}
 
 
 class PageScorer:
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         self._rules = list(DEFAULT_PAGE_TYPE_RULES)
         self.top_x = 10
         if config:

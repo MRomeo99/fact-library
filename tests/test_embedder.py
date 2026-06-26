@@ -1,9 +1,11 @@
 """Tests for the embedding layer."""
+
 import sys
 import types
-import pytest
-import numpy as np
 from unittest.mock import MagicMock, patch
+
+import numpy as np
+import pytest
 
 # Stub sentence_transformers before importing LocalEmbedder so tests work
 # without the (large) package installed. Tests that use LocalEmbedder patch
@@ -69,5 +71,5 @@ class TestLocalEmbedder:
 
     def test_model_name_is_minilm(self, mock_model):
         with patch("sentence_transformers.SentenceTransformer", return_value=mock_model) as mock_st:
-            embedder = LocalEmbedder()
+            LocalEmbedder()
             mock_st.assert_called_once_with("sentence-transformers/all-MiniLM-L6-v2")

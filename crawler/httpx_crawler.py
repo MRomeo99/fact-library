@@ -1,14 +1,14 @@
 """Default static crawler using httpx + BeautifulSoup."""
+
 import logging
 import time
-from typing import Optional
 from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 
 from crawler.base import AbstractCrawler, CrawledPage
-from crawler.robots import get_robots_parser, is_allowed, USER_AGENT
+from crawler.robots import USER_AGENT, get_robots_parser, is_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,9 @@ class HttpxCrawler(AbstractCrawler):
 
         try:
             time.sleep(self._rate_limit)
-            with httpx.Client(headers=DEFAULT_HEADERS, timeout=self._timeout, follow_redirects=True) as c:
+            with httpx.Client(
+                headers=DEFAULT_HEADERS, timeout=self._timeout, follow_redirects=True
+            ) as c:
                 response = c.get(url)
             return CrawledPage(
                 url=str(response.url),

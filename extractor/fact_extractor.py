@@ -1,8 +1,9 @@
 """LLM-based structured fact extractor."""
+
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 

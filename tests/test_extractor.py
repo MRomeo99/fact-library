@@ -1,10 +1,13 @@
 """Tests for the LLM fact extractor."""
+
 import json
 import os
 import sys
 import types
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 
 # Stub optional heavy dependencies so tests run without them installed
 def _stub_module(name: str, **attrs):
@@ -14,6 +17,7 @@ def _stub_module(name: str, **attrs):
             setattr(mod, k, v)
         sys.modules[name] = mod
     return sys.modules[name]
+
 
 # portkey_ai stub
 _pk_stub = _stub_module("portkey_ai")
@@ -27,21 +31,20 @@ _gai_stub.GenerativeModel = MagicMock()  # type: ignore
 if not hasattr(_gai_parent, "generativeai"):
     _gai_parent.generativeai = _gai_stub  # type: ignore
 
+from extractor.fact_extractor import FactExtractor
+from extractor.llm_client import build_llm_client
 from extractor.schemas import (
-    FactBase,
-    IdentityFact,
-    ServiceFact,
-    PricingFact,
-    LocationFact,
     CredibilityFact,
+    IdentityFact,
+    LocationFact,
     OperationalFact,
+    PricingFact,
+    ServiceFact,
     parse_facts,
 )
-from extractor.llm_client import build_llm_client
-from extractor.fact_extractor import FactExtractor
-
 
 # ── Schema tests ──────────────────────────────────────────────────────────────
+
 
 class TestFactSchemas:
     def test_identity_fact_validates(self):
@@ -123,36 +126,40 @@ class TestFactSchemas:
 
 class TestParseFacts:
     def test_parse_valid_json_list(self):
-        raw = json.dumps([
-            {
-                "fact_type": "identity",
-                "content": "Sunrise Dental is a family practice.",
-                "confidence": 0.9,
-                "raw_evidence": "Sunrise Dental — family practice.",
-            }
-        ])
+        raw = json.dumps(
+            [
+                {
+                    "fact_type": "identity",
+                    "content": "Sunrise Dental is a family practice.",
+                    "confidence": 0.9,
+                    "raw_evidence": "Sunrise Dental — family practice.",
+                }
+            ]
+        )
         facts = parse_facts(raw)
         assert len(facts) == 1
         assert facts[0].fact_type == "identity"
 
     def test_parse_filters_low_confidence(self):
-        raw = json.dumps([
-            {
-                "fact_type": "pricing",
-                "content": "Competitive pricing.",
-                "confidence": 0.3,
-                "raw_evidence": "Competitive pricing.",
-                "price_min": None,
-                "price_max": None,
-                "price_unit": None,
-            },
-            {
-                "fact_type": "identity",
-                "content": "Sunrise Dental.",
-                "confidence": 0.9,
-                "raw_evidence": "Sunrise Dental.",
-            },
-        ])
+        raw = json.dumps(
+            [
+                {
+                    "fact_type": "pricing",
+                    "content": "Competitive pricing.",
+                    "confidence": 0.3,
+                    "raw_evidence": "Competitive pricing.",
+                    "price_min": None,
+                    "price_max": None,
+                    "price_unit": None,
+                },
+                {
+                    "fact_type": "identity",
+                    "content": "Sunrise Dental.",
+                    "confidence": 0.9,
+                    "raw_evidence": "Sunrise Dental.",
+                },
+            ]
+        )
         facts = parse_facts(raw)
         assert len(facts) == 1
         assert facts[0].fact_type == "identity"
@@ -162,15 +169,17 @@ class TestParseFacts:
         assert facts == []
 
     def test_parse_skips_invalid_fact_objects(self):
-        raw = json.dumps([
-            {"fact_type": "unknown_type_xyz", "confidence": 0.9},
-            {
-                "fact_type": "identity",
-                "content": "Good fact.",
-                "confidence": 0.9,
-                "raw_evidence": "Good fact.",
-            },
-        ])
+        raw = json.dumps(
+            [
+                {"fact_type": "unknown_type_xyz", "confidence": 0.9},
+                {
+                    "fact_type": "identity",
+                    "content": "Good fact.",
+                    "confidence": 0.9,
+                    "raw_evidence": "Good fact.",
+                },
+            ]
+        )
         facts = parse_facts(raw)
         # The valid one survives; the malformed one is skipped
         assert any(f.fact_type == "identity" for f in facts)
@@ -178,12 +187,13 @@ class TestParseFacts:
 
 # ── LLM client factory tests ──────────────────────────────────────────────────
 
+
 class TestBuildLlmClient:
     def test_portkey_mode_requires_env_vars(self):
-        env = {"LLM_MODE": "portkey"}
         # Remove the two required portkey vars so os.environ["PORTKEY_API_KEY"] raises
-        env_without = {k: v for k, v in os.environ.items()
-                       if k not in ("PORTKEY_API_KEY", "PORTKEY_CONFIG")}
+        env_without = {
+            k: v for k, v in os.environ.items() if k not in ("PORTKEY_API_KEY", "PORTKEY_CONFIG")
+        }
         env_without["LLM_MODE"] = "portkey"
         with patch.dict(os.environ, env_without, clear=True):
             with pytest.raises(KeyError):
@@ -195,28 +205,35 @@ class TestBuildLlmClient:
                 build_llm_client()
 
     def test_direct_mode_google_provider(self):
-        with patch.dict(os.environ, {
-            "LLM_MODE": "direct",
-            "LLM_PROVIDER": "google",
-            "LLM_MODEL_DIRECT": "gemini-2.5-flash",
-            "GOOGLE_API_KEY": "fake-key",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "LLM_MODE": "direct",
+                "LLM_PROVIDER": "google",
+                "LLM_MODEL_DIRECT": "gemini-2.5-flash",
+                "GOOGLE_API_KEY": "fake-key",
+            },
+        ):
             client = build_llm_client()
             assert client is not None
             assert hasattr(client, "chat")
 
     def test_direct_mode_openai_provider(self):
-        with patch.dict(os.environ, {
-            "LLM_MODE": "direct",
-            "LLM_PROVIDER": "openai",
-            "LLM_MODEL_DIRECT": "gpt-4o-mini",
-            "OPENAI_API_KEY": "fake-key",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "LLM_MODE": "direct",
+                "LLM_PROVIDER": "openai",
+                "LLM_MODEL_DIRECT": "gpt-4o-mini",
+                "OPENAI_API_KEY": "fake-key",
+            },
+        ):
             client = build_llm_client()
             assert client is not None
 
 
 # ── FactExtractor tests ───────────────────────────────────────────────────────
+
 
 class TestFactExtractor:
     def _make_mock_llm_response(self, facts_json: str):
@@ -228,12 +245,16 @@ class TestFactExtractor:
     def test_extract_returns_fact_list(self):
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = self._make_mock_llm_response(
-            json.dumps([{
-                "fact_type": "identity",
-                "content": "Sunrise Dental is a family practice.",
-                "confidence": 0.9,
-                "raw_evidence": "Sunrise Dental — family practice.",
-            }])
+            json.dumps(
+                [
+                    {
+                        "fact_type": "identity",
+                        "content": "Sunrise Dental is a family practice.",
+                        "confidence": 0.9,
+                        "raw_evidence": "Sunrise Dental — family practice.",
+                    }
+                ]
+            )
         )
         extractor = FactExtractor(llm_client=mock_client)
         facts = extractor.extract(
@@ -249,15 +270,19 @@ class TestFactExtractor:
     def test_extract_filters_low_confidence(self):
         mock_client = MagicMock()
         mock_client.chat.completions.create.return_value = self._make_mock_llm_response(
-            json.dumps([{
-                "fact_type": "pricing",
-                "content": "Competitive pricing.",
-                "confidence": 0.2,
-                "raw_evidence": "Competitive pricing.",
-                "price_min": None,
-                "price_max": None,
-                "price_unit": None,
-            }])
+            json.dumps(
+                [
+                    {
+                        "fact_type": "pricing",
+                        "content": "Competitive pricing.",
+                        "confidence": 0.2,
+                        "raw_evidence": "Competitive pricing.",
+                        "price_min": None,
+                        "price_max": None,
+                        "price_unit": None,
+                    }
+                ]
+            )
         )
         extractor = FactExtractor(llm_client=mock_client)
         facts = extractor.extract(
