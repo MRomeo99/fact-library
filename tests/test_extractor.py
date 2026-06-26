@@ -219,14 +219,17 @@ class TestBuildLlmClient:
             assert hasattr(client, "chat")
 
     def test_direct_mode_openai_provider(self):
-        with patch("openai.OpenAI", return_value=MagicMock()), patch.dict(
-            os.environ,
-            {
-                "LLM_MODE": "direct",
-                "LLM_PROVIDER": "openai",
-                "LLM_MODEL_DIRECT": "gpt-4o-mini",
-                "OPENAI_API_KEY": "fake-key",
-            },
+        with (
+            patch("openai.OpenAI", return_value=MagicMock()),
+            patch.dict(
+                os.environ,
+                {
+                    "LLM_MODE": "direct",
+                    "LLM_PROVIDER": "openai",
+                    "LLM_MODEL_DIRECT": "gpt-4o-mini",
+                    "OPENAI_API_KEY": "fake-key",
+                },
+            ),
         ):
             client = build_llm_client()
             assert client is not None
