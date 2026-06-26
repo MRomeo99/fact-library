@@ -534,3 +534,160 @@ where the same pricing information appears on both the homepage and the pricing 
    a `client_id` filter becomes the query hot path. Sharding by industry (`dental_facts`,
    `legal_facts`, `home_services_facts`) improves index locality and allows industry-specific
    payload schema evolution without migrating a monolithic collection.
+
+---
+
+## 12. Multi-Source Ingestion: Why Three Sources Are Better Than One
+
+### What we chose
+Three ingestion sources writing to the same Qdrant collection: website crawler (existing),
+knowledge base (Postgres CDC), and documents (file watcher). A single `source_type` payload
+field distinguishes them at retrieval time.
+
+### The problem with crawler-only ingestion
+Website crawling captures public-facing facts. It misses two important categories:
+
+**Facts the business controls but doesn't publish.** An AI agent answering calls needs to
+know: "If a caller wants to cancel, waive the fee for platinum members." That's never on the
+website. It's in the cancellation policy script the receptionist follows. Without a KB source,
+the agent either makes something up or gives the wrong answer.
+
+**Facts in structured documents that never made it to the website.** A dental practice's
+full service menu lives in a PDF given to patients. The website has a high-level services
+page; the PDF has actual prices and procedure codes. The agent needs the PDF.
+
+### Why not just put everything in the website?
+For local businesses, the website is typically managed by a marketing agency or a self-serve
+platform like Wix. The business doesn't control it directly. Adding a pricing override or
+a cancellation policy means filing a change request with the agency. The knowledge base gives
+the business direct, immediate control over what the agent says — without touching the website.
+
+### Alternatives considered
+
+**Single source with manual override flags**
+Mark certain facts as "overrides" in Qdrant. A flag in the payload deprioritizes or
+removes conflicting crawled facts.
+
+_Why it doesn't work:_ You can't flag crawled facts until after extraction. Extraction
+is non-deterministic — the same page might produce slightly different facts on two runs,
+and you'd have to re-apply override flags after every crawl. A separate KB source with
+guaranteed `confidence=1.0` is cleaner and more reliable.
+
+**Fine-tune the LLM to extract KB-style facts from the website**
+If the business puts their scripts on a hidden `/internal-scripts` page, the crawler
+extracts them as facts.
+
+_Why it doesn't scale:_ Requires website access and cooperation. Creates a security risk
+(agent scripts visible to public crawlers). Breaks the clean separation between public
+content and internal business logic.
+
+---
+
+## 13. Source Confidence Ranking: Why Knowledge Base Facts Must Win
+
+### What we chose
+A source multiplier applied post-search:
+```python
+final_score = vector_similarity * confidence * source_multiplier
+# KB: 1.0x · Website: 0.9x · Document: 0.85x
+```
+
+### The override requirement
+When a business explicitly curates a fact ("our cancellation fee is $50"), it should
+always outrank what the crawler found ("cancellation fees may apply"). This is not a
+semantic similarity question — it's a governance question. The business is saying:
+"This is the authoritative version." The data layer must respect that.
+
+Without a source multiplier, a website fact with vector similarity 0.95 would outrank
+a KB fact with similarity 0.88 for the same query. That's the wrong answer.
+
+### Why these specific multipliers?
+
+**KB at 1.0× (no discount):** Human-authored facts are already set to `confidence=1.0`
+by definition. No further discounting is appropriate — the business explicitly wrote this.
+
+**Website at 0.9×:** Crawled + LLM-extracted. High quality but not authoritative. The 10%
+discount is enough to ensure a clear KB fact beats a website fact on the same topic, while
+keeping strong website facts above weak or tangential KB facts.
+
+**Document at 0.85×:** Parsed + LLM-extracted from unstructured documents. Higher variance
+than web pages (documents may have headers, tables, and boilerplate that reduce extraction
+precision). The additional 5% discount versus website reflects this.
+
+### Why post-search re-ranking rather than pre-filtering?
+
+Two alternatives:
+1. **Index-time boosting:** Multiply the embedding vector by the multiplier at upsert time.
+   This bakes the ranking decision into the vector space permanently. Changing the multiplier
+   requires re-embedding all vectors.
+2. **Pre-filter by source_type:** Search KB first, then website, merge results.
+   This breaks the unified semantic search — you'd need to run 3 queries and merge, losing
+   cross-source ranking.
+
+Post-search re-ranking (`final_score = similarity * confidence * multiplier`) is clean,
+adjustable without re-embedding, and preserves the single-query interface. The cost is
+over-fetching (`limit * 3` results) and sorting in Python, which is negligible at our scale.
+
+### The tradeoff
+The multipliers are currently constants. In production, they should be:
+- Configurable per client (a client who updates their KB daily gets a higher KB multiplier)
+- Adaptive over time (a KB fact that hasn't been updated in 6 months should be discounted)
+- Monitored via the CI eval gate to ensure the KB override rate stays above 90%
+
+---
+
+## 14. CI-Gated Retrieval Eval: Why This Is the Most Important Engineering Decision
+
+### What we chose
+A 28-question ground-truth evaluation suite that runs in CI. Precision@3 < 0.75 or
+MRR < 0.70 fails the build and blocks merges.
+
+### Why this is different from unit tests
+Unit tests verify that code does what it says. They confirm `precision_at_k()` returns the
+right number, `chunk_document()` splits correctly, `upsert_fact()` calls the Qdrant client.
+
+What they can't verify: whether the agent actually gets back the right facts when it asks
+a real question. A prompt change that improves structure but moves pricing facts from position
+1 to position 3 in retrieval results is invisible to unit tests. The eval gate catches it.
+
+### The silent regression problem
+Consider three changes that each pass all unit tests and break retrieval quality:
+
+1. **Prompt change:** "Return facts as a JSON array" → "Return facts in structured format."
+   Extraction quality drops. Fewer facts per page. Precision@3 falls from 0.84 to 0.61.
+   Unit tests: all green (parse_facts still works on the reduced output).
+
+2. **Source multiplier bug:** KB multiplier accidentally set to 0.85 instead of 1.0 in
+   a refactor. Website facts now outrank KB facts on the same topic.
+   Unit tests: all green (search returns results, multiplier math is technically valid).
+
+3. **Chunking change:** Max tokens reduced from 1500 to 500 to "improve focus." Document
+   facts fragment. A pricing table that spanned one chunk now spans three, each too small
+   to extract a complete fact.
+   Unit tests: all green (chunk_document works, smaller chunks are valid).
+
+All three scenarios degrade the agent's answer quality in ways a user would immediately notice.
+None are caught by any test that doesn't measure end-to-end retrieval.
+
+### Why 28 questions and not 200?
+28 questions is the minimum viable eval set that covers:
+- All three source types (website, knowledge_base, document)
+- All major fact types (pricing, service, location, operational, conditional, qa)
+- All three demo clients (dental, legal, home services)
+- The KB override scenario (8 questions where a KB fact must rank #1)
+
+Adding more questions improves precision of the metric but increases the risk of eval
+brittleness (a small, targeted dataset is easier to reason about when a threshold trips).
+The upgrade path: grow to 100-200 questions as the product matures and add LLM-as-judge
+for automated ground truth generation on new content.
+
+### Why seed facts directly rather than run the full pipeline in CI?
+The full pipeline requires real LLM calls. In CI:
+- Real LLM calls are non-deterministic (the eval score would vary between runs)
+- Real LLM calls have cost (CI runs dozens of times per day)
+- The eval would be testing LLM extraction quality, not retrieval ranking — and we don't
+  control the LLM's output in CI
+
+By seeding known typed facts directly into Qdrant, the CI eval tests exactly what it should:
+does the retrieval and ranking layer surface the right facts for the right queries? That's
+the job. LLM extraction quality is a separate concern measured with DSPy or a human eval set.
