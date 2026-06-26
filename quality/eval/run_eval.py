@@ -35,9 +35,16 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
     LLM, so we seed facts directly rather than running the full pipeline.
     This tests retrieval mechanics (source-type ranking, fact-type filtering)
     without requiring live LLM calls.
+
+    Each client has facts covering all expected fact types so every eval
+    question has at least one matching fact in the collection. The thresholds
+    in run_eval (precision ≥ 0.45, MRR ≥ 0.65) are calibrated against this
+    seed set — not aspirational production targets.
     """
     from extractor.schemas import (
         ConditionalFact,
+        CredibilityFact,
+        IdentityFact,
         LocationFact,
         OperationalFact,
         PricingFact,
@@ -46,15 +53,15 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
     )
 
     seed_facts = [
-        # demo_dental — KB facts (should rank above website facts for same query)
+        # ── demo_dental ──────────────────────────────────────────────────────
         (
             "demo_dental",
             ConditionalFact(
                 fact_type="conditional",
-                content="If caller asks about cancellation, then inform them of 48-hour window and $50 fee",
+                content="If caller asks about cancellation, we require 48-hour notice and charge a $50 late fee.",
                 condition="caller asks about cancellation",
-                response="inform them of the 48-hour cancellation window and $50 late fee",
-                exception_note="unless they are a platinum member",
+                response="48-hour cancellation window required; $50 late fee applies",
+                exception_note="waived for platinum members",
                 priority=8,
             ),
             "knowledge_base",
@@ -65,8 +72,19 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             QAFact(
                 fact_type="qa",
                 content="Yes, we offer 0% financing through CareCredit for treatments over $500.",
-                question="Do you offer payment plans?",
+                question="Do you offer payment plans or financing?",
                 answer="Yes, we offer 0% financing through CareCredit for treatments over $500.",
+            ),
+            "knowledge_base",
+            None,
+        ),
+        (
+            "demo_dental",
+            QAFact(
+                fact_type="qa",
+                content="Yes, we are currently accepting new patients. You can book online or call our front desk.",
+                question="Are you accepting new patients?",
+                answer="Yes, we are currently accepting new patients. Book online or call to schedule.",
             ),
             "knowledge_base",
             None,
@@ -75,9 +93,9 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_dental",
             PricingFact(
                 fact_type="pricing",
-                content="Dental cleaning starts at $89 for new patients.",
+                content="Dental cleaning starts at $89 for new patients. Whitening packages start at $299.",
                 confidence=0.92,
-                raw_evidence="Dental cleaning $89 new patients",
+                raw_evidence="Dental cleaning $89 new patients; whitening $299",
                 price_min=89.0,
                 price_unit="per visit",
             ),
@@ -88,7 +106,7 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_dental",
             ServiceFact(
                 fact_type="service",
-                content="Professional teeth whitening using Zoom technology, results in one visit.",
+                content="Professional teeth whitening using Zoom technology, same-day results.",
                 service_name="Teeth Whitening",
                 confidence=0.95,
                 raw_evidence="Professional teeth whitening Zoom technology one visit",
@@ -100,10 +118,10 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_dental",
             ServiceFact(
                 fact_type="service",
-                content="Comprehensive dental services including crowns, veneers, and implants.",
+                content="Full restorative dental services: crowns, veneers, implants, and bridges.",
                 service_name="Restorative Dentistry",
                 confidence=0.9,
-                raw_evidence="Crowns veneers implants restorative dentistry",
+                raw_evidence="Crowns veneers implants bridges restorative dentistry",
             ),
             "document",
             {"document_name": "dental_service_menu.txt", "page_number": 1},
@@ -112,19 +130,56 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_dental",
             OperationalFact(
                 fact_type="operational",
-                content="Office hours: Monday–Friday 8am–5pm, Saturday 9am–2pm.",
+                content="Office hours: Monday–Friday 8am–5pm, Saturday 9am–2pm. Closed Sundays.",
                 confidence=0.88,
-                raw_evidence="Monday Friday 8am 5pm Saturday 9am 2pm",
+                raw_evidence="Monday Friday 8am 5pm Saturday 9am 2pm closed Sunday",
             ),
             "website",
             None,
         ),
-        # demo_legal
+        (
+            "demo_dental",
+            LocationFact(
+                fact_type="location",
+                content="Located at 4501 Westside Drive, Dallas, TX 75205. Free parking available.",
+                confidence=0.95,
+                raw_evidence="4501 Westside Drive Dallas TX 75205 free parking",
+                address="4501 Westside Drive",
+                city="Dallas",
+                state="TX",
+                service_area=["Dallas", "Plano", "Frisco"],
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_dental",
+            CredibilityFact(
+                fact_type="credibility",
+                content="Board-certified by the American Dental Association. Rated 4.9 stars on Google with 320 reviews.",
+                confidence=0.9,
+                raw_evidence="ADA board certified 4.9 stars Google 320 reviews",
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_dental",
+            IdentityFact(
+                fact_type="identity",
+                content="Sunrise Family Dental — compassionate family dental care in Dallas since 2008.",
+                confidence=0.98,
+                raw_evidence="Sunrise Family Dental Dallas since 2008",
+            ),
+            "website",
+            None,
+        ),
+        # ── demo_legal ───────────────────────────────────────────────────────
         (
             "demo_legal",
             ConditionalFact(
                 fact_type="conditional",
-                content="If caller asks about cancellation, then 24-hour notice required, $75 fee applies",
+                content="If caller cancels a consultation with less than 24-hour notice, a $75 no-show fee applies.",
                 condition="caller asks about cancelling a consultation",
                 response="24-hour notice required; $75 no-show fee applies",
                 priority=9,
@@ -136,9 +191,9 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_legal",
             PricingFact(
                 fact_type="pricing",
-                content="Initial consultation fee is $150 for one hour.",
+                content="Initial consultation fee is $150 for one hour. We do not offer free consultations.",
                 confidence=0.95,
-                raw_evidence="Initial consultation $150 one hour",
+                raw_evidence="Initial consultation $150 one hour no free consultations",
                 price_min=150.0,
                 price_unit="per hour",
             ),
@@ -147,9 +202,20 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
         ),
         (
             "demo_legal",
+            QAFact(
+                fact_type="qa",
+                content="We do not offer free consultations. Our initial 60-minute session is $150.",
+                question="Do you offer free consultations?",
+                answer="We do not offer free consultations. Initial session is $150 for 60 minutes.",
+            ),
+            "knowledge_base",
+            None,
+        ),
+        (
+            "demo_legal",
             ServiceFact(
                 fact_type="service",
-                content="Personal injury, family law, estate planning, and business litigation.",
+                content="Practice areas: personal injury, family law, estate planning, and business litigation.",
                 service_name="Practice Areas",
                 confidence=0.92,
                 raw_evidence="Personal injury family law estate planning business litigation",
@@ -159,26 +225,71 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
         ),
         (
             "demo_legal",
-            LocationFact(
-                fact_type="location",
-                content="Serving Dallas, Fort Worth, Plano, and surrounding DFW metro area.",
+            ServiceFact(
+                fact_type="service",
+                content="Specializing in motor vehicle accidents, slip-and-fall, and wrongful death claims.",
+                service_name="Personal Injury",
                 confidence=0.9,
-                raw_evidence="Dallas Fort Worth Plano DFW metro",
-                city="Dallas",
-                state="TX",
-                service_area=["Dallas", "Fort Worth", "Plano"],
+                raw_evidence="Motor vehicle accidents slip fall wrongful death personal injury",
             ),
             "website",
             None,
         ),
-        # demo_home_services
+        (
+            "demo_legal",
+            LocationFact(
+                fact_type="location",
+                content="Serving Dallas, Fort Worth, Plano, Arlington, and the entire DFW metro area.",
+                confidence=0.9,
+                raw_evidence="Dallas Fort Worth Plano Arlington DFW metro area",
+                city="Dallas",
+                state="TX",
+                service_area=["Dallas", "Fort Worth", "Plano", "Arlington"],
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_legal",
+            CredibilityFact(
+                fact_type="credibility",
+                content="Combined 25+ years of litigation experience. All attorneys are Texas State Bar certified.",
+                confidence=0.93,
+                raw_evidence="25 years litigation experience Texas State Bar certified attorneys",
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_legal",
+            IdentityFact(
+                fact_type="identity",
+                content="Johnson & Associates — a full-service law firm serving Texas clients since 1999.",
+                confidence=0.97,
+                raw_evidence="Johnson Associates full service law firm Texas 1999",
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_legal",
+            OperationalFact(
+                fact_type="operational",
+                content="New client intake: complete online form, provide ID and documents, attend initial consultation within 48 hours.",
+                confidence=0.85,
+                raw_evidence="New client intake online form ID documents consultation 48 hours",
+            ),
+            "document",
+            {"document_name": "law_firm_faq.txt", "page_number": 2},
+        ),
+        # ── demo_home_services ───────────────────────────────────────────────
         (
             "demo_home_services",
             ConditionalFact(
                 fact_type="conditional",
-                content="If caller asks about rescheduling, then 24-hour notice needed, no fee",
+                content="If caller asks about rescheduling, 24-hour notice is appreciated and there is no cancellation fee.",
                 condition="caller asks about rescheduling or cancelling",
-                response="24-hour notice appreciated; no cancellation fee",
+                response="24-hour notice appreciated; no cancellation fee charged",
                 priority=7,
             ),
             "knowledge_base",
@@ -188,9 +299,31 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_home_services",
             OperationalFact(
                 fact_type="operational",
-                content="24/7 emergency plumbing service available. Call our emergency line.",
+                content="24/7 emergency plumbing available. Same-day service for calls placed before noon.",
                 confidence=0.93,
-                raw_evidence="24/7 emergency plumbing service emergency line",
+                raw_evidence="24/7 emergency plumbing same day service before noon",
+            ),
+            "knowledge_base",
+            None,
+        ),
+        (
+            "demo_home_services",
+            QAFact(
+                fact_type="qa",
+                content="Yes, we offer same-day plumbing service for calls placed before noon on weekdays.",
+                question="Do you offer same-day service?",
+                answer="Yes, same-day service available for calls placed before noon on weekdays.",
+            ),
+            "knowledge_base",
+            None,
+        ),
+        (
+            "demo_home_services",
+            QAFact(
+                fact_type="qa",
+                content="We accept cash, all major credit cards, and offer 12-month financing on repairs over $500.",
+                question="What payment methods do you accept?",
+                answer="Cash, all major credit cards, and 12-month financing available on repairs over $500.",
             ),
             "knowledge_base",
             None,
@@ -199,9 +332,9 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
             "demo_home_services",
             LocationFact(
                 fact_type="location",
-                content="Serving Dallas, Garland, Mesquite, Irving, and all DFW suburbs.",
+                content="Serving Dallas, Garland, Mesquite, Irving, and all DFW suburbs within 40 miles.",
                 confidence=0.88,
-                raw_evidence="Dallas Garland Mesquite Irving DFW suburbs",
+                raw_evidence="Dallas Garland Mesquite Irving DFW suburbs 40 miles",
                 city="Dallas",
                 state="TX",
                 service_area=["Dallas", "Garland", "Mesquite", "Irving"],
@@ -211,13 +344,50 @@ def seed_eval_data(store: QdrantStore, embedder: LocalEmbedder) -> None:
         ),
         (
             "demo_home_services",
+            LocationFact(
+                fact_type="location",
+                content="Primary service area: Plano, Richardson, Allen, McKinney — all within 30 miles of Dallas.",
+                confidence=0.85,
+                raw_evidence="Plano Richardson Allen McKinney 30 miles Dallas service area",
+                city="Plano",
+                state="TX",
+                service_area=["Plano", "Richardson", "Allen", "McKinney"],
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_home_services",
             PricingFact(
                 fact_type="pricing",
-                content="Service call fee is $75 which is applied toward any repair work.",
+                content="Service call fee is $75, applied toward any repair. Free estimates on installations.",
                 confidence=0.91,
-                raw_evidence="Service call $75 applied toward repair",
+                raw_evidence="Service call $75 applied toward repair free estimates installations",
                 price_min=75.0,
                 price_unit="per visit",
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_home_services",
+            ServiceFact(
+                fact_type="service",
+                content="Full plumbing services: drain cleaning, pipe repair, water heater installation, and leak detection.",
+                service_name="Plumbing Services",
+                confidence=0.94,
+                raw_evidence="Drain cleaning pipe repair water heater installation leak detection plumbing",
+            ),
+            "website",
+            None,
+        ),
+        (
+            "demo_home_services",
+            CredibilityFact(
+                fact_type="credibility",
+                content="Licensed and fully insured in Texas (License #TX-PLU-2891). Bonded for your protection.",
+                confidence=0.96,
+                raw_evidence="Licensed insured Texas TX-PLU-2891 bonded protection",
             ),
             "website",
             None,

@@ -219,7 +219,7 @@ class TestBuildLlmClient:
             assert hasattr(client, "chat")
 
     def test_direct_mode_openai_provider(self):
-        with patch.dict(
+        with patch("openai.OpenAI", return_value=MagicMock()), patch.dict(
             os.environ,
             {
                 "LLM_MODE": "direct",
