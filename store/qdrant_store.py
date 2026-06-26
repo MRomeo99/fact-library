@@ -34,7 +34,10 @@ class QdrantStore:
     def __init__(self, url: str | None = None, api_key: str | None = None):
         resolved_url = url or os.environ.get("QDRANT_URL", "http://localhost:6333")
         resolved_key = api_key or os.environ.get("QDRANT_API_KEY") or None
-        self._client = QdrantClient(url=resolved_url, api_key=resolved_key)
+        if resolved_url == "memory":
+            self._client = QdrantClient(":memory:")
+        else:
+            self._client = QdrantClient(url=resolved_url, api_key=resolved_key)
         self._ensure_collection()
 
     def _ensure_collection(self) -> None:
