@@ -1,12 +1,15 @@
 """Prefect @flow definitions for the client fact pipeline."""
 import logging
 import os
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from prefect import flow
 from prefect.schedules import CronSchedule
 
 from embedder.local_embedder import LocalEmbedder
+from ingestion.document_ingestion import ingest_document
+from ingestion.kb_ingestion import sync_knowledge_base
 from pipeline.tasks import (
     check_incremental,
     crawl_page,
@@ -28,17 +31,15 @@ def run_client_pipeline(
     max_pages: int = 30,
     scorer_config: dict | None = None,
 ) -> dict:
-    """End-to-end pipeline: discover → score → crawl → extract → embed → upsert."""
+    """End-to-end website crawl pipeline: discover → score → crawl → extract → embed → upsert."""
     store = QdrantStore()
     embedder = LocalEmbedder()
 
     print(f"[{client_id}] Starting pipeline for {base_url}")
 
-    # Stage 1: Discover internal pages
     all_urls = discover_pages(base_url, max_pages=max_pages)
     print(f"[{client_id}] Discovered {len(all_urls)} pages")
 
-    # Stage 2: Score and filter
     scored = score_pages(all_urls, scorer_config=scorer_config)
     print(f"[{client_id}] {len(scored)} pages scored > 0")
 
@@ -49,13 +50,11 @@ def run_client_pipeline(
         page_score = item["score"]
         path = urlparse(url).path or "/"
 
-        # Stage 3: Crawl
         page = crawl_page(url)
         stats["pages_checked"] += 1
         if page is None:
             continue
 
-        # Stage 4: Incremental check
         content_hash = check_incremental(
             client_id=client_id, url=url, page=page, store=store
         )
@@ -67,10 +66,8 @@ def run_client_pipeline(
         stats["pages_crawled"] += 1
         print(f"[{client_id}] CRAWL: {url}")
 
-        # Stage 5: Determine page_type from path
         page_type = _path_to_page_type(path)
 
-        # Stage 6: Extract facts
         facts = extract_facts(
             page=page,
             page_type=page_type,
@@ -79,7 +76,6 @@ def run_client_pipeline(
         )
         print(f"[{client_id}]   {len(facts)} facts extracted from {url}")
 
-        # Stage 7: Embed + upsert
         count = embed_and_upsert(
             client_id=client_id,
             facts=facts,
@@ -96,10 +92,68 @@ def run_client_pipeline(
     return stats
 
 
-@flow(
-    name="nightly-recrawl",
-    log_prints=True,
-)
+@flow(name="kb-sync", log_prints=True)
+def kb_sync_flow(
+    client_id: str,
+    rows: list[dict],
+) -> dict:
+    """Sync knowledge base records into Qdrant.
+
+    In production: fetch rows from Postgres using fetch_kb_rows_since(),
+    then pass them here. KB ingestion makes zero LLM calls.
+
+    Args:
+        client_id: The client whose KB records to sync.
+        rows: Raw DB rows from client_knowledge_base.
+    """
+    store = QdrantStore()
+    embedder = LocalEmbedder()
+
+    print(f"[{client_id}] Syncing {len(rows)} KB records")
+    result = sync_knowledge_base(
+        client_id=client_id,
+        rows=rows,
+        store=store,
+        embedder=embedder,
+    )
+    print(f"[{client_id}] KB sync complete: {result}")
+    return result
+
+
+@flow(name="document-ingestion", log_prints=True)
+def document_ingestion_flow(
+    client_id: str,
+    file_path: str,
+    document_name: str | None = None,
+) -> dict:
+    """Ingest a single document (PDF, DOCX, or TXT) into Qdrant.
+
+    Args:
+        client_id: Client this document belongs to.
+        file_path: Absolute path to the file.
+        document_name: Display name; defaults to the file's basename.
+    """
+    import os
+
+    store = QdrantStore()
+    embedder = LocalEmbedder()
+
+    if document_name is None:
+        document_name = os.path.basename(file_path)
+
+    print(f"[{client_id}] Ingesting document: {document_name}")
+    result = ingest_document(
+        client_id=client_id,
+        file_path=file_path,
+        document_name=document_name,
+        store=store,
+        embedder=embedder,
+    )
+    print(f"[{client_id}] Document ingestion complete: {result}")
+    return result
+
+
+@flow(name="nightly-recrawl", log_prints=True)
 def nightly_recrawl(clients: list[dict]) -> None:
     """Nightly scheduled recrawl for all registered clients."""
     for client in clients:
@@ -139,7 +193,6 @@ def _path_to_page_type(path: str) -> str:
 
 
 if __name__ == "__main__":
-    # Demo: run against mock server
     mock_url = os.environ.get("MOCK_SERVER_URL", "http://localhost:8888")
     run_client_pipeline(
         client_id="demo-dental",

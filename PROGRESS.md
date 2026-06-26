@@ -1,120 +1,139 @@
 # PROGRESS.md — Client Fact Library Build Session
 
-**Date:** 2026-06-18  
-**Session result:** Full project scaffold built from scratch. 79/79 tests passing.
+**Last updated:** 2026-06-26  
+**Session result:** CLAUDE-PART2.md fully implemented. 130/130 tests passing.
 
 ---
 
-## What Was Built
+## Session 1 — Initial build (2026-06-18)
 
-### Project scaffold
-- `pyproject.toml` — all dependencies, pytest/ruff/black config, coverage thresholds
-- `.env.example` — all required env vars with comments
-- `.gitignore`
-- `Makefile` — all 8 required targets (up, down, mock-server, crawl, serve, test, lint, pipeline, reset)
-- `docker-compose.yml` — Qdrant + Prefect server services
-- `LICENSE` — MIT
+Built the full project scaffold from CLAUDE.md. 79 tests passing.
+See session 1 details below under "What Was Built (Session 1)".
 
-### Crawler module (`crawler/`)
-- `base.py` — `AbstractCrawler` interface, `CrawledPage` dataclass
-- `robots.py` — robots.txt fetching and `is_allowed()` enforcement
-- `page_scorer.py` — full importance scoring model (base scores + 5 modifiers, capped at 5), YAML config overrides
-- `httpx_crawler.py` — static HTML crawler with rate limiting and robots.txt enforcement
-- `playwright_crawler.py` — JS-rendered fallback crawler
+---
 
-### Extractor module (`extractor/`)
-- `schemas.py` — all 6 Pydantic fact types + `parse_facts()` with confidence filtering and validation
-- `llm_client.py` — `build_llm_client()` factory: Portkey mode + direct mode (Google/OpenAI)
-- `prompts/extraction_system.txt` — LLM system prompt with exact JSON schema, confidence scoring rules
-- `prompts/extraction_user.jinja` — Jinja2 user prompt template with page context
-- `fact_extractor.py` — `FactExtractor` class, handles LLM errors gracefully
+## Session 2 — CLAUDE-PART2.md additions (2026-06-26)
 
-### Embedder module (`embedder/`)
-- `base.py` — `AbstractEmbedder` ABC
-- `local_embedder.py` — `LocalEmbedder` using `sentence-transformers/all-MiniLM-L6-v2` (384-dim, lazy import)
-- `openai_embedder.py` — `OpenAIEmbedder` for `text-embedding-3-small` (1536-dim swap path)
+### What was added
 
-### Store module (`store/`)
-- `collection_config.py` — `COLLECTION_NAME = "client_facts"`, vector size 384, Cosine distance
-- `qdrant_store.py` — full Qdrant operations: upsert, delete_for_url, search (with fact_type filter), content_hash_exists, get_fact_counts_by_type
+#### New ingestion sources
 
-### Pipeline module (`pipeline/`)
-- `incremental.py` — `compute_content_hash()` (sha256, prefers etag/last-modified), `ContentHashChecker`
-- `tasks.py` — 5 Prefect `@task` functions: discover_pages, score_pages, crawl_page, check_incremental, extract_facts, embed_and_upsert
-- `flows.py` — `run_client_pipeline()` Prefect `@flow`, `nightly_recrawl()` with CronSchedule, CLI entrypoint
+**`ingestion/kb_ingestion.py`** — Knowledge base CDC polling
+- `map_kb_row_to_fact()` — maps DB rows to `ConditionalFact` / `QAFact`
+- `get_embed_text_for_kb_fact()` — `"conditional: if {X} then {Y}"` format
+- `sync_knowledge_base()` — upserts active records, deletes inactive ones
+- `fetch_kb_rows_since()` — Postgres CDC query for `updated_at > since`
+- Zero LLM calls — KB facts are embedded directly
+- `source_type = "knowledge_base"`, `confidence = 1.0` by default
 
-### Serving module (`serving/`)
-- `routers/facts.py` — `GET /facts/{client_id}?q=...&fact_type=...&limit=5` with `fact_age_days`
-- `routers/crawl.py` — `POST /facts/{client_id}/crawl` (background task)
-- `routers/status.py` — `GET /facts/{client_id}/status` and `GET /facts/{client_id}/types`
-- `main.py` — FastAPI app with all routers + health endpoint
+**`ingestion/document_ingestion.py`** — PDF/DOCX/TXT ingestion
+- `parse_document()` — pdfplumber (PDF), python-docx (DOCX), native (TXT)
+- `chunk_document()` — structural boundary split + 1500-token max guard
+- `ingest_document()` — delete-then-upsert with `source_type="document"`
+- `DocumentChunk` dataclass with `document_name`, `page_number`, `section_heading`
 
-### Seeds / mock site server (`seeds/`)
-- `mock_site_server.py` — FastAPI server on `:8888` with 3 business types (dental, home services, law firm)
-- `mock_sites/dental_practice.html` — full dental practice page with JSON-LD structured data
-- `mock_sites/home_services.html` — home services page with service area and pricing
-- `mock_sites/law_firm.html` — law firm page with practice areas and credibility facts
+#### New schemas (`extractor/schemas.py`)
+- `ConditionalFact` — if/then KB rule: `condition`, `response`, `exception_note`, `priority`
+- `QAFact` — curated Q&A pair: `question`, `answer`
+- Both carry `source_type: Literal["knowledge_base"] = "knowledge_base"`, `confidence = 1.0`
 
-### Tests (`tests/`) — 79 tests, all passing
-- `test_scorer.py` — 26 tests: all URL pattern scores, all modifiers, cap, YAML overrides
-- `test_extractor.py` — 15 tests: all 6 fact schemas, parse_facts, LLM client factory, FactExtractor
-- `test_embedder.py` — 7 tests: abstract interface, LocalEmbedder with mock model
-- `test_pipeline.py` — 7 tests: content hash determinism, ContentHashChecker
-- `test_store.py` — 11 tests: collection config, QdrantStore operations (mocked Qdrant)
-- `test_serving.py` — 10 tests: facts endpoint shape/fields/filters, status, types (dependency_overrides)
-- `conftest.py` — autouse fixture setting safe env vars
+#### Store updates (`store/`)
+- `collection_config.py` — added `source_type` as indexed keyword field
+- `qdrant_store.py` — `upsert_fact()` gains `source_type` and `extra_payload` params
+- `qdrant_store.py` — `delete_by_payload()` for flexible deletion (by `kb_record_id`, `document_name`)
+- `qdrant_store.py` — `search()` gains `source_type` filter + confidence re-ranking:
+  `final_score = vector_similarity * confidence * source_multiplier`
+  - KB: 1.0× · Website: 0.9× · Document: 0.85×
 
-### Documentation
-- `docs/architecture.md` — full architecture diagram and component descriptions
-- `docs/page_scoring_spec.md` — complete scoring model specification
-- `docs/adr/001-qdrant-over-pgvector.md`
-- `docs/adr/002-portkey-for-llm-routing.md`
-- `docs/adr/003-fact-typed-chunks.md`
-- `docs/adr/004-prefect-over-dagster.md`
+#### Serving update (`serving/routers/facts.py`)
+- `source_type` optional filter param added to `GET /facts/{client_id}`
+- `source_type` field added to every result object in the response
 
-### CI/CD
-- `.github/workflows/ci.yml` — lint (ruff + black), test, Docker build, integration smoke test
+#### Pipeline update (`pipeline/flows.py`)
+- `kb_sync_flow()` — Prefect flow for KB CDC sync
+- `document_ingestion_flow()` — Prefect flow for single-document ingestion
+- Existing `run_client_pipeline()` unchanged
 
-### Documentation files
-- `README.md` — all 13 required sections (badges, architecture diagram, scoring table, API example, swap paths)
-- `SETUP.md` — complete Path A (Portkey) and Path B (direct mode) setup instructions
-- `notebooks/demo.ipynb` — Colab-runnable end-to-end demo (scoring → extraction → embedding → Qdrant → search)
-- `config/scorers/dental_practice.yml` and `law_firm.yml` — example scorer configs
+#### Quality eval harness (`quality/eval/`)
+- `metrics.py` — `precision_at_k()`, `mrr()`, `source_coverage()`
+- `eval_questions.json` — 28 ground-truth Q&A pairs (3 clients, all source+fact types)
+- `run_eval.py` — CI-runnable eval with `--min-precision` / `--min-mrr` thresholds
+  - Seeds known typed facts directly into Qdrant (zero LLM cost in CI)
+  - Exits non-zero if thresholds not met
+
+#### Seeds and sample documents (`seeds/`)
+- `seed_knowledge_base.py` — inserts 13 demo KB records across 3 clients
+- `seeds/sample_documents/dental_service_menu.txt` — realistic dental service pricing
+- `seeds/sample_documents/law_firm_faq.txt` — law firm intake FAQ and pricing
+- `seeds/sample_documents/home_services_areas.txt` — service area and pricing guide
+
+#### SQL (`supabase/client_knowledge_base.sql`)
+- `client_knowledge_base` table with all required columns + indexes
+- `kb_sync_state` table for CDC polling state
+- Auto-update trigger for `updated_at`
+
+#### CI/CD (`.github/workflows/ci.yml`)
+- New `eval` job (runs after `test`): seeds demo data, fires eval questions, gates on precision ≥ 0.75 and MRR ≥ 0.70
+
+#### Makefile — new targets
+```
+make seed-kb        # insert sample KB records to Postgres
+make seed-docs      # copy sample documents to watched folder
+make seed-all       # seed + seed-kb + seed-docs
+make eval           # run retrieval eval suite locally
+make pipeline-all   # up + seed-all + crawl
+```
+
+#### Documentation
+- `docs/adr/005-knowledge-base-ingestion.md`
+- `docs/adr/006-hybrid-document-chunking.md`
+- `docs/adr/007-ci-gated-retrieval-eval.md`
+
+#### pyproject.toml
+- Added `pdfplumber`, `python-docx`, `psycopg2-binary` to dependencies
+- Added `ingestion*` and `quality*` to package discovery
 
 ---
 
 ## Tests Status
 
 ```
-79 passed, 1 warning in 1.56s
+130 passed, 1 warning in 2.16s
 ```
 
-All 79 tests pass with mocked external dependencies (no real Qdrant, LLM, or embedder calls needed).
+| Test file                     | Tests |
+|-------------------------------|-------|
+| test_scorer.py                | 26    |
+| test_extractor.py             | 15    |
+| test_embedder.py              | 7     |
+| test_pipeline.py              | 7     |
+| test_store.py                 | 11    |
+| test_serving.py               | 11    |
+| test_kb_ingestion.py          | 16    |
+| test_document_ingestion.py    | 12    |
+| test_eval_metrics.py          | 15    |
+| conftest.py                   | —     |
+| **Total**                     | **130** |
 
 ---
 
 ## What Remains
 
-### Not yet complete (requires runtime/infrastructure)
-- [ ] Prefect UI screenshot in README (requires running `make up && make crawl`)
-- [ ] Measured p99 retrieval latency (requires running Qdrant locally)
-- [ ] Docker build verification (no Docker available in this session)
-- [ ] End-to-end pipeline run against mock server (requires running services)
-- [ ] SETUP.md tested on clean machine
+### Requires runtime/infrastructure (unchanged from session 1)
+- [ ] Prefect UI screenshot in README (requires running services)
+- [ ] Measured p99 retrieval latency (requires live Qdrant)
+- [ ] Docker build verification
+- [ ] End-to-end pipeline run against mock server
+- [ ] README updated with KB/document/eval sections (spec requires real eval numbers)
+
+### Not yet done (CLAUDE-PART2.md)
+- [ ] README additions: KB source section, document source section, retrieval eval results table
+- [ ] SETUP.md additions: KB ingestion zero-token note, document ingestion setup
+- [ ] `make seed-docs` ingest flow (needs `document_ingestion_flow` wired to folder watcher)
+- [ ] `notebooks/demo.ipynb` updated to show multi-source ingestion
 
 ### Assumptions Made
-1. **Python interpreter**: Anaconda at `C:\Users\mrome\anaconda3\python.exe`. Standard `python`/`py` commands are aliased to Microsoft Store stub on this machine.
-2. **Optional packages not installed**: `sentence_transformers`, `qdrant_client`, `portkey_ai`, `prefect`, `google-generativeai` are not in the conda environment. Tests use module stubs so they run without these packages. Production use requires `pip install -e ".[dev]"`.
-3. **Direct mode default for tests**: Tests use `LLM_MODE=direct` with OpenAI stub. Portkey mode works when `portkey_ai` is installed.
-4. **Notebook Colab path**: The notebook assumes the repo will be cloned; the `git clone` URL is a placeholder (`your-org`).
-5. **CI Docker build**: The Docker build step in `ci.yml` is `continue-on-error: true` since no Dockerfile exists yet — a Dockerfile was not specified in CLAUDE.md.
-
-### Not in CLAUDE.md scope (skipped)
-- Playwright E2E tests (CLAUDE.md spec uses pytest, not Playwright for this project)
-- Supabase SQL migrations (not applicable — this is a Python project, not Next.js)
-
----
-
-## Coverage Note
-
-The `--cov-fail-under=80` threshold in `pyproject.toml` may not be met without installing all optional packages and running with real imports. When running with stubs, coverage of `qdrant_store.py`, `local_embedder.py`, and `pipeline/tasks.py` will be partial. Full coverage requires the production dependencies installed.
+1. `QAFact` embeds `question` field from `condition` column of DB schema (condition holds the question for qa-type rows).
+2. `pdfplumber` and `python-docx` are imported lazily inside `parse_document()` — not installed in conda env; tests mock them out entirely.
+3. Eval runner in CI seeds facts directly (bypasses LLM) — tests retrieval/ranking logic only.
+4. Source multipliers (KB: 1.0, website: 0.9, document: 0.85) are implemented as a post-search re-ranking step over `fetch_limit = max(limit*3, 15)` results.

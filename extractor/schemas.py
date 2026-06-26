@@ -49,6 +49,40 @@ class OperationalFact(FactBase):
     fact_type: Literal["operational"]
 
 
+# ── Knowledge-base fact types (human-authored, not LLM-extracted) ─────────────
+
+class ConditionalFact(FactBase):
+    """Explicit if/then business rule authored in the knowledge base.
+
+    Human-authored: confidence defaults to 1.0, raw_evidence is empty.
+    Embedded text: "conditional: if {condition} then {response}"
+    """
+
+    fact_type: Literal["conditional"]
+    condition: str
+    response: str
+    exception_note: Optional[str] = None
+    priority: int = 5
+    source_type: Literal["knowledge_base"] = "knowledge_base"
+    confidence: float = 1.0
+    raw_evidence: str = ""
+
+
+class QAFact(FactBase):
+    """Question/answer pair authored in the knowledge base.
+
+    Also covers talking_point and pricing_override KB record types.
+    Human-authored: confidence defaults to 1.0, raw_evidence is empty.
+    """
+
+    fact_type: Literal["qa"]
+    question: str
+    answer: str
+    source_type: Literal["knowledge_base"] = "knowledge_base"
+    confidence: float = 1.0
+    raw_evidence: str = ""
+
+
 AnyFact = Union[
     IdentityFact,
     ServiceFact,
@@ -56,6 +90,8 @@ AnyFact = Union[
     LocationFact,
     CredibilityFact,
     OperationalFact,
+    ConditionalFact,
+    QAFact,
 ]
 
 _FACT_TYPE_MAP: dict[str, type] = {
@@ -65,6 +101,8 @@ _FACT_TYPE_MAP: dict[str, type] = {
     "location": LocationFact,
     "credibility": CredibilityFact,
     "operational": OperationalFact,
+    "conditional": ConditionalFact,
+    "qa": QAFact,
 }
 
 

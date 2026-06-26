@@ -101,10 +101,14 @@ class TestFactsEndpoint:
         result = data["results"][0]
         required_fields = [
             "fact_id", "fact_type", "content", "confidence",
-            "source_url", "page_type", "extracted_at", "score", "fact_age_days",
+            "source_url", "source_type", "page_type", "extracted_at", "score", "fact_age_days",
         ]
         for field in required_fields:
             assert field in result, f"Missing field: {field}"
+
+    def test_get_facts_with_source_type_filter(self, client):
+        response = client.get("/facts/client_abc?q=prices&source_type=knowledge_base")
+        assert response.status_code == 200
 
     def test_get_facts_fact_age_days_is_int(self, client):
         response = client.get("/facts/client_abc?q=prices")

@@ -13,6 +13,7 @@ def get_collection_config() -> dict:
             "client_id": "keyword",
             "fact_type": "keyword",
             "page_type": "keyword",
+            "source_type": "keyword",
             "confidence": "float",
             "content_hash": "keyword",
             "source_url": "keyword",

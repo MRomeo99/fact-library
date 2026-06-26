@@ -21,6 +21,13 @@ from store.collection_config import COLLECTION_NAME, get_collection_config
 
 logger = logging.getLogger(__name__)
 
+# Source type confidence multipliers for re-ranking
+SOURCE_MULTIPLIERS: dict[str, float] = {
+    "knowledge_base": 1.0,
+    "website": 0.9,
+    "document": 0.85,
+}
+
 
 class QdrantStore:
     def __init__(self, url: Optional[str] = None, api_key: Optional[str] = None):
@@ -42,6 +49,7 @@ class QdrantStore:
             )
             for field_name, field_type in cfg["indexed_fields"].items():
                 from qdrant_client.models import PayloadSchemaType
+
                 schema_type = (
                     PayloadSchemaType.KEYWORD
                     if field_type == "keyword"
@@ -66,12 +74,13 @@ class QdrantStore:
         page_type: str,
         page_score: int,
         content_hash: str,
+        source_type: str = "website",
+        extra_payload: Optional[dict] = None,
     ) -> None:
         fact_id = self._compute_fact_id(client_id, fact)
-        # Use first 32 hex chars as a UUID-compatible id (128-bit)
         point_id = str(UUID(fact_id[:32]))
 
-        payload = {
+        payload: dict[str, Any] = {
             "client_id": client_id,
             "fact_id": fact_id,
             "fact_type": fact.fact_type,
@@ -84,10 +93,17 @@ class QdrantStore:
             "extracted_at": datetime.now(tz=timezone.utc).isoformat(),
             "raw_evidence": fact.raw_evidence,
         }
-        # Include type-specific fields
+        # Include type-specific fields from the model
         for k, v in fact.model_dump().items():
             if k not in payload:
                 payload[k] = v
+
+        # source_type parameter always wins (overrides any model field)
+        payload["source_type"] = source_type
+
+        # Merge caller-supplied extra fields (document_name, kb_record_id, etc.)
+        if extra_payload:
+            payload.update(extra_payload)
 
         self._client.upsert(
             collection_name=COLLECTION_NAME,
@@ -105,25 +121,54 @@ class QdrantStore:
             ),
         )
 
+    def delete_by_payload(self, client_id: str, **filter_fields) -> None:
+        """Delete points matching client_id plus any additional payload field values."""
+        must = [FieldCondition(key="client_id", match=MatchValue(value=client_id))]
+        for field, value in filter_fields.items():
+            must.append(FieldCondition(key=field, match=MatchValue(value=value)))
+        self._client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=Filter(must=must),
+        )
+
     def search(
         self,
         client_id: str,
         query_vector: list[float],
         limit: int = 5,
         fact_type: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> list[dict]:
         must = [FieldCondition(key="client_id", match=MatchValue(value=client_id))]
         if fact_type:
             must.append(FieldCondition(key="fact_type", match=MatchValue(value=fact_type)))
+        if source_type:
+            must.append(FieldCondition(key="source_type", match=MatchValue(value=source_type)))
 
+        # Over-fetch so re-ranking doesn't deplete the result set
+        fetch_limit = max(limit * 3, 15)
         hits = self._client.search(
             collection_name=COLLECTION_NAME,
             query_vector=query_vector,
             query_filter=Filter(must=must),
-            limit=limit,
+            limit=fetch_limit,
             with_payload=True,
         )
-        return [{"score": h.score, **h.payload} for h in hits]
+
+        # Apply source-type confidence multiplier and re-rank
+        ranked = []
+        for h in hits:
+            st = h.payload.get("source_type", "website")
+            multiplier = SOURCE_MULTIPLIERS.get(st, 0.9)
+            confidence = h.payload.get("confidence", 1.0)
+            final_score = h.score * confidence * multiplier
+            ranked.append({"_final_score": final_score, "score": h.score, **h.payload})
+
+        ranked.sort(key=lambda x: -x["_final_score"])
+        for r in ranked:
+            r["score"] = r.pop("_final_score")
+
+        return ranked[:limit]
 
     def content_hash_exists(self, client_id: str, source_url: str, content_hash: str) -> bool:
         results, _ = self._client.scroll(

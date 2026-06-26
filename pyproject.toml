@@ -36,6 +36,11 @@ dependencies = [
     "python-dotenv>=1.0",
     "pyyaml>=6.0",
     "httpx>=0.27",
+    # Document ingestion
+    "pdfplumber>=0.11",
+    "python-docx>=1.1",
+    # Knowledge base ingestion (Postgres CDC)
+    "psycopg2-binary>=2.9",
 ]
 
 [project.optional-dependencies]
@@ -52,7 +57,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["crawler*", "extractor*", "embedder*", "store*", "pipeline*", "serving*", "seeds*"]
+include = ["crawler*", "extractor*", "embedder*", "store*", "pipeline*", "serving*", "seeds*", "ingestion*", "quality*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

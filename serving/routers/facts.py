@@ -1,4 +1,4 @@
-"""GET /facts/{client_id} — semantic search with optional fact_type filter."""
+"""GET /facts/{client_id} — semantic search with optional fact_type and source_type filters."""
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -16,11 +16,14 @@ def get_store() -> QdrantStore:
 
 def get_embedder() -> AbstractEmbedder:
     import os
+
     mode = os.environ.get("EMBEDDING_MODE", "local")
     if mode == "openai":
         from embedder.openai_embedder import OpenAIEmbedder
+
         return OpenAIEmbedder()
     from embedder.local_embedder import LocalEmbedder
+
     return LocalEmbedder()
 
 
@@ -29,6 +32,9 @@ def search_facts(
     client_id: str,
     q: str = Query(..., description="Natural language query"),
     fact_type: Optional[str] = Query(None, description="Filter by fact type"),
+    source_type: Optional[str] = Query(
+        None, description="Filter by source: website, knowledge_base, document"
+    ),
     limit: int = Query(5, ge=1, le=50),
     store: QdrantStore = Depends(get_store),
     embedder: AbstractEmbedder = Depends(get_embedder),
@@ -39,6 +45,7 @@ def search_facts(
         query_vector=query_vector,
         limit=limit,
         fact_type=fact_type,
+        source_type=source_type,
     )
     now = datetime.now(tz=timezone.utc)
     results = []
@@ -52,17 +59,20 @@ def search_facts(
         except Exception:
             fact_age_days = -1
 
-        results.append({
-            "fact_id": hit.get("fact_id", ""),
-            "fact_type": hit.get("fact_type", ""),
-            "content": hit.get("content", ""),
-            "confidence": hit.get("confidence", 0.0),
-            "source_url": hit.get("source_url", ""),
-            "page_type": hit.get("page_type", ""),
-            "extracted_at": extracted_at_str,
-            "fact_age_days": fact_age_days,
-            "score": hit.get("score", 0.0),
-        })
+        results.append(
+            {
+                "fact_id": hit.get("fact_id", ""),
+                "fact_type": hit.get("fact_type", ""),
+                "content": hit.get("content", ""),
+                "confidence": hit.get("confidence", 0.0),
+                "source_url": hit.get("source_url", ""),
+                "source_type": hit.get("source_type", "website"),
+                "page_type": hit.get("page_type", ""),
+                "extracted_at": extracted_at_str,
+                "fact_age_days": fact_age_days,
+                "score": hit.get("score", 0.0),
+            }
+        )
 
     return {
         "client_id": client_id,

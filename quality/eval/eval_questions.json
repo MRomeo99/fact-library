@@ -1,0 +1,204 @@
+[
+  {
+    "client_id": "demo_dental",
+    "question": "Do you offer payment plans?",
+    "expected_fact_types": ["qa", "conditional", "pricing"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75,
+    "notes": "KB record should override/supplement website pricing"
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "What happens if I need to cancel my appointment?",
+    "expected_fact_types": ["conditional"],
+    "expected_source_types": ["knowledge_base"],
+    "min_score": 0.80,
+    "notes": "Cancellation policy is a conditional KB fact — must rank #1"
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "What teeth whitening services do you offer?",
+    "expected_fact_types": ["service"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "How much does a dental cleaning cost?",
+    "expected_fact_types": ["pricing"],
+    "expected_source_types": ["knowledge_base", "website", "document"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "Do you accept CareCredit?",
+    "expected_fact_types": ["qa", "operational"],
+    "expected_source_types": ["knowledge_base"],
+    "min_score": 0.80,
+    "notes": "CareCredit acceptance is a curated KB Q&A"
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "What are your office hours?",
+    "expected_fact_types": ["operational"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.70
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "Where are you located?",
+    "expected_fact_types": ["location"],
+    "expected_source_types": ["website"],
+    "min_score": 0.70
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "What dental services do you provide?",
+    "expected_fact_types": ["service"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "Are you accepting new patients?",
+    "expected_fact_types": ["qa", "operational"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "What awards or certifications do you have?",
+    "expected_fact_types": ["credibility"],
+    "expected_source_types": ["website"],
+    "min_score": 0.65
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "What areas of law do you practice?",
+    "expected_fact_types": ["service"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "What happens if I need to cancel a consultation?",
+    "expected_fact_types": ["conditional"],
+    "expected_source_types": ["knowledge_base"],
+    "min_score": 0.80,
+    "notes": "Critical: KB conditional must rank first"
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "How much does an initial consultation cost?",
+    "expected_fact_types": ["pricing"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "Do you offer free consultations?",
+    "expected_fact_types": ["qa", "pricing"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "What cities do you serve?",
+    "expected_fact_types": ["location"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.70
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "How many years of experience do you have?",
+    "expected_fact_types": ["credibility", "identity"],
+    "expected_source_types": ["website"],
+    "min_score": 0.65
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "What is your intake process for new clients?",
+    "expected_fact_types": ["operational", "qa"],
+    "expected_source_types": ["knowledge_base", "document"],
+    "min_score": 0.70
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "What plumbing services do you offer?",
+    "expected_fact_types": ["service"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "Do you serve the Dallas area?",
+    "expected_fact_types": ["location"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "What are your emergency service hours?",
+    "expected_fact_types": ["operational", "qa"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "How much does a service call cost?",
+    "expected_fact_types": ["pricing"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "What is your cancellation or rescheduling policy?",
+    "expected_fact_types": ["conditional"],
+    "expected_source_types": ["knowledge_base"],
+    "min_score": 0.80,
+    "notes": "KB conditional must rank first"
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "Are you licensed and insured?",
+    "expected_fact_types": ["credibility"],
+    "expected_source_types": ["website"],
+    "min_score": 0.65
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "What is your service area?",
+    "expected_fact_types": ["location"],
+    "expected_source_types": ["website", "document"],
+    "min_score": 0.70
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "Do you offer same-day service?",
+    "expected_fact_types": ["qa", "operational"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.75
+  },
+  {
+    "client_id": "demo_home_services",
+    "question": "What payment methods do you accept?",
+    "expected_fact_types": ["qa", "operational"],
+    "expected_source_types": ["knowledge_base", "website"],
+    "min_score": 0.70
+  },
+  {
+    "client_id": "demo_dental",
+    "question": "What is your company name and tagline?",
+    "expected_fact_types": ["identity"],
+    "expected_source_types": ["website"],
+    "min_score": 0.65
+  },
+  {
+    "client_id": "demo_legal",
+    "question": "What is included in the law firm intake form?",
+    "expected_fact_types": ["operational", "qa"],
+    "expected_source_types": ["document"],
+    "min_score": 0.65,
+    "notes": "Document-sourced fact — intake form content"
+  }
+]
