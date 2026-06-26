@@ -12,6 +12,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    FilterSelector,
     MatchValue,
     PointStruct,
     VectorParams,
@@ -117,11 +118,13 @@ class QdrantStore:
     def delete_facts_for_url(self, client_id: str, source_url: str) -> None:
         self._client.delete(
             collection_name=COLLECTION_NAME,
-            points_selector=Filter(
-                must=[
-                    FieldCondition(key="client_id", match=MatchValue(value=client_id)),
-                    FieldCondition(key="source_url", match=MatchValue(value=source_url)),
-                ]
+            points_selector=FilterSelector(
+                filter=Filter(
+                    must=[
+                        FieldCondition(key="client_id", match=MatchValue(value=client_id)),
+                        FieldCondition(key="source_url", match=MatchValue(value=source_url)),
+                    ]
+                )
             ),
         )
 
@@ -132,7 +135,7 @@ class QdrantStore:
             must.append(FieldCondition(key=field, match=MatchValue(value=value)))
         self._client.delete(
             collection_name=COLLECTION_NAME,
-            points_selector=Filter(must=must),
+            points_selector=FilterSelector(filter=Filter(must=must)),
         )
 
     def search(
@@ -151,13 +154,13 @@ class QdrantStore:
 
         # Over-fetch so re-ranking doesn't deplete the result set
         fetch_limit = max(limit * 3, 15)
-        hits = self._client.search(
+        hits = self._client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
+            query=query_vector,
             query_filter=Filter(must=must),
             limit=fetch_limit,
             with_payload=True,
-        )
+        ).points
 
         # Apply source-type confidence multiplier and re-rank
         ranked = []

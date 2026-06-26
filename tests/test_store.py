@@ -24,6 +24,7 @@ for _name in [
     "Distance",
     "FieldCondition",
     "Filter",
+    "FilterSelector",
     "MatchValue",
     "PointStruct",
     "VectorParams",
@@ -114,7 +115,9 @@ class TestQdrantStore:
         mock_qdrant.delete.assert_called_once()
 
     def test_search_returns_list(self, mock_qdrant):
-        mock_qdrant.search.return_value = []
+        mock_result = MagicMock()
+        mock_result.points = []
+        mock_qdrant.query_points.return_value = mock_result
         store = QdrantStore()
         results = store.search(
             client_id="client_abc",
@@ -124,7 +127,9 @@ class TestQdrantStore:
         assert isinstance(results, list)
 
     def test_search_with_fact_type_filter(self, mock_qdrant):
-        mock_qdrant.search.return_value = []
+        mock_result = MagicMock()
+        mock_result.points = []
+        mock_qdrant.query_points.return_value = mock_result
         store = QdrantStore()
         store.search(
             client_id="client_abc",
@@ -132,7 +137,7 @@ class TestQdrantStore:
             limit=5,
             fact_type="pricing",
         )
-        call_kwargs = mock_qdrant.search.call_args
+        call_kwargs = mock_qdrant.query_points.call_args
         assert call_kwargs is not None
 
     def test_content_hash_check_returns_bool(self, mock_qdrant):

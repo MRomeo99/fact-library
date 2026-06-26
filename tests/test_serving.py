@@ -25,6 +25,7 @@ for _n in [
     "Distance",
     "FieldCondition",
     "Filter",
+    "FilterSelector",
     "MatchValue",
     "PointStruct",
     "VectorParams",
